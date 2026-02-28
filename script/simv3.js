@@ -1,82 +1,55 @@
 const axios = require('axios');
-const fs = require('fs-extra');
-const path = require('path');
-
-// State management: Save active threads to a JSON file so they stay "ON" even after a restart
-const threadsFile = path.join(__dirname, "cache", "sim_threads.json");
-
-function loadActiveThreads() {
-    try {
-        if (!fs.existsSync(threadsFile)) return new Set();
-        const data = fs.readJsonSync(threadsFile);
-        return new Set(data);
-    } catch (e) {
-        return new Set();
-    }
-}
-
-function saveActiveThreads(set) {
-    fs.outputJsonSync(threadsFile, Array.from(set));
-}
-
-let activeSimThreads = loadActiveThreads();
 
 module.exports.config = {
-    name: "simv3",
-    version: "3.1.0",
-    permission: 0,
-    credits: "Alex",
-    prefix: false,
-    description: "SimSimi auto-reply with persistent state",
-    category: "AI",
-    usages: "sim [on/off]",
-    cooldowns: 2
+  name: "sim",
+  version: "1.0.0",
+  permission: 0,
+  credits: "Alex Jhon Ponce",
+  prefix: false,
+  premium: false,
+  description: "Talk with SimSimi AI",
+  category: "without prefix",
+  usages: "[text]",
+  cooldowns: 3,
+  dependencies: {
+    "axios": ""
+  }
 };
 
-module.exports.handleEvent = async function({ api, event }) {
-    const { threadID, body, senderID, messageID } = event;
-    
-    // Only trigger if SimSimi is ON for this thread and message isn't from the bot itself
-    if (!activeSimThreads.has(threadID)) return;
-    if (!body || senderID === api.getCurrentUserID()) return;
-
-    try {
-        const { data } = await axios.get(`https://simsimi.ooguy.com/sim`, {
-            params: {
-                query: body,
-                apikey: "2899d5d398374068b18eae52b52463d8e9204d8a"
-            }
-        });
-
-        if (data && data.respond) {
-            api.sendMessage(data.respond, threadID, messageID);
-        }
-    } catch (error) {
-        console.error("SimSimi Error:", error.message);
-    }
+module.exports.languages = {
+  "english": {
+    "noInput": "Please provide a message to send to Sim.\nExample: sim Hello!",
+    "noResponse": "Error: No response from Sim API.",
+    "apiError": "Error: Failed to connect to Sim API."
+  },
+  "bangla": {
+    "noInput": "অনুগ্রহ করে Sim-এ পাঠানোর জন্য একটি বার্তা লিখুন।\nযেমন: sim হ্যালো!",
+    "noResponse": "ত্রুটি: Sim API থেকে কোনো উত্তর পাওয়া যায়নি।",
+    "apiError": "ত্রুটি: Sim API এর সাথে সংযোগ ব্যর্থ হয়েছে।"
+  }
 };
 
-module.exports.run = async function({ api, event, args }) {
-    const { threadID, messageID } = event;
-    const mode = (args[0] || "").toLowerCase();
+module.exports.run = async ({ api, event, args, getText }) => {
+  const { threadID, messageID, senderID } = event;
+  const query = args.join(" ");
 
-    if (mode === "on") {
-        if (activeSimThreads.has(threadID)) {
-            return api.sendMessage("⚠️ SimSimi is already active in this thread.", threadID);
-        }
-        activeSimThreads.add(threadID);
-        saveActiveThreads(activeSimThreads);
-        return api.sendMessage("✅ SimSimi auto-reply is now ON.", threadID, messageID);
+  if (!query) {
+    return api.sendMessage(getText("noInput"), threadID, messageID);
+  }
+
+  try {
+    const apiKey = "2899d5d398374068b18eae52b52463d8e9204d8a";
+    const apiUrl = `https://simsimi.ooguy.com/sim?query=${encodeURIComponent(query)}&apikey=${apiKey}`;
+    const { data } = await axios.get(apiUrl);
+
+    if (!data || !data.respond) {
+      return api.sendMessage(getText("noResponse"), threadID, messageID);
     }
 
-    if (mode === "off") {
-        if (!activeSimThreads.has(threadID)) {
-            return api.sendMessage("⚠️ SimSimi is not active here.", threadID);
-        }
-        activeSimThreads.delete(threadID);
-        saveActiveThreads(activeSimThreads);
-        return api.sendMessage("❌ SimSimi auto-reply is now OFF.", threadID, messageID);
-    }
+    return api.sendMessage(data.respond, threadID, messageID);
 
-    return api.sendMessage("📌 Usage:\nsim on — Enable auto-reply\nsim off — Disable auto-reply", threadID, messageID);
+  } catch (error) {
+    console.error("sim command error:", error.message);
+    return api.sendMessage(getText("apiError"), threadID, messageID);
+  }
 };
