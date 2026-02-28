@@ -54,7 +54,7 @@ module.exports.handleEvent = async function({ api, event }) {
   if (!body || senderID === api.getCurrentUserID()) return;
 
   try {
-    const apiKey = "2a5a2264d2ee4f0b847cb8bd809ed34bc3309be7";
+    const apiKey = "2899d5d398374068b18eae52b52463d8e9204d8a";
     const apiUrl = `https://simsimi.ooguy.com/sim?query=${encodeURIComponent(body)}&apikey=${apiKey}`;
     const { data } = await axios.get(apiUrl);
     if (!data || !data.respond) return;
